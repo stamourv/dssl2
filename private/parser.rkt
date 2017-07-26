@@ -60,8 +60,8 @@
       (<statements>
         [(<statement> <newlines>)
          $1]
-        [(<statement> <newlines> <statements>)
-         (append $1 $3)])
+        [(<statement> NEWLINE <newlines> <statements>)
+         (append $1 $4)])
 
       (<newlines>
         [()
@@ -111,13 +111,11 @@
          (loc `[else ,@$3])])
 
       (<suite>
-        [(<simple-statement>)
-         $1]
-        [(NEWLINE INDENT <statements> DEDENT)
-         $3])
+        [(INDENT <statements> DEDENT)
+         $2])
 
       (<simple-statement>
-        [(<small-statement> <more-small-statements> NEWLINE)
+        [(<small-statement> <more-small-statements>)
          (cons $1 $2)])
 
       (<more-small-statements>
@@ -213,14 +211,14 @@
          (cons $1 $3)])
 
       (<field>
-        [(IDENT COLON <expr>)
+        [(IDENT EQUALS <expr>)
          (loc `[,$1 ,$3])]
         [(IDENT)
          (loc `[,$1 ,$1])])
 
       (<expr>
-        [(LAMBDA <formals> COLON <expr>)
-         (loc `(lambda ,$2 ,$4))]
+        [(LAMBDA <formals> COLON <suite>)
+         (loc `(lambda ,$2 ,@$4))]
         [(<expr0> IF <expr0> ELSE <expr>)
          (loc `(if ,$3 ,$1 ,$5))]
         [(<expr0>)

@@ -27,10 +27,12 @@
               '(begin (vector 0 1 2)))
   (test-parse "[0; 10]"
               '(begin (make-vector 10 0)))
-  (test-parse "posn { x: 3, y: 4 }"
-              '(begin (posn [x 3] [y 4])))
+  (test-parse "posn { x = 3, y = 4 }"
+              '(begin (make-posn [x 3] [y 4])))
   (test-parse "a == 4"
               '(begin (== a 4)))
+  (test-parse "lambda x: y == 1"
+              '(begin (lambda (x) (== y 1))))
   (test-parse "lambda x, y: x == y"
               '(begin (lambda (x y) (== x y))))
   (test-parse "λ x, y: x == y"
@@ -73,20 +75,26 @@
   (test-parse "assert False"
               '(begin (assert #f)))
   (test-parse "assert_eq a + 1, 6"
-              '(begin (assert-eq (+ a 1) 6)))
+              '(begin (assert_eq (+ a 1) 6)))
 
   ; compound statements
   
   (test-parse "if a: c = d"
               '(begin (cond [a (setf! c d)] [else (pass)])))
-  (test-parse "if a: c = d\nelse: e = f"
-              '(begin (cond [a (setf! c d)] [else (setf! e f)])))
+  (test-parse "if a: c\nelse: e"
+              '(begin (cond [a c] [else e])))
   (test-parse "if a: c = d\nelif b: e = 3\nelse: f = 4"
               '(begin (cond [a (setf! c d)]
                             [b (setf! e 3)]
                             [else (setf! f 4)])))
   (test-parse "if a:\n  c = d"
               '(begin (cond [a (setf! c d)]
+                            [else (pass)])))
+  (test-parse "if a:\n  b\n  c"
+              '(begin (cond [a b c]
+                            [else (pass)])))
+  (test-parse "if a:\n  e[0]"
+              '(begin (cond [a (vector-ref e 0)]
                             [else (pass)])))
   (test-parse "if a:\n  c = d\n  e[0] = 9"
               '(begin (cond [a (setf! c d)
@@ -109,4 +117,15 @@
               '(begin (for [j v] (println j))))
   (test-parse (string-append "for i, j in v:\n"
                              "  println(i, j)")
-              '(begin (for [(i j) v] (println i j)))))
+              '(begin (for [(i j) v] (println i j))))
+  (test-parse "[ i for i in size_ ]"
+              '(begin (for/vector [i size_] i)))
+  (test-parse "let x = lambda y: z\nw"
+              '(begin
+                 (let x (lambda (y) z))
+                 w))
+  (test-parse "def as_vector():\n    [ i for i in size_ ]"
+              '(begin (def (as_vector)
+                           (for/vector [i size_] i))))
+  )
+

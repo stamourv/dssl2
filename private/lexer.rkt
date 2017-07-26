@@ -183,31 +183,67 @@
   (define stack '(0))
   (define queue '())
 
+  (define (push value)
+    (set! stack (cons value stack)))
+  (define (pop)
+    (set! stack (rest stack)))
+
   (define previous-line 1)
 
   (define (yield token)
     (set! previous-line (position-line (position-token-end-pos token)))
     (set! queue (append queue (cons token '()))))
 
+  (define (pop-indents-to n pos)
+    (when (and (number? (first stack)) (< n (first stack)))
+      (yield (position-token (token-DEDENT) pos pos))
+      (pop)
+      (pop-indents-to n pos)))
+
+  (define (balance-delimiters token)
+    (define name (token-name (position-token-token token)))
+    (define start-pos (position-token-start-pos token))
+    (case name
+      [(LPAREN)
+       (push 'RPAREN)
+       (yield token)]
+      [(LBRACK)
+       (push 'RBRACK)
+       (yield token)]
+      [(LBRACE)
+       (push 'RBRACE)
+       (yield token)]
+      [(RPAREN RBRACK RBRACE)
+       (pop-indents-to 0 start-pos)
+       (unless (eq? name (first stack))
+         (lexical-error start-pos "‘~a’ matched by ‘~a”"
+                        (first stack) name))
+       (pop)
+       (yield token)]
+      [else (yield token)]))
+
   (define (fill-queue)
     (define token (the-lexer port))
     (define start-pos (position-token-start-pos token))
     (define end-pos (position-token-end-pos token))
+    (define old-previous-line previous-line)
 
-    (when (and (> (position-line start-pos) previous-line)
-               (eqv? (position-col start-pos) (first stack)))
+    (pop-indents-to (position-col start-pos) start-pos)
+
+    (when (and (> (position-line start-pos) old-previous-line)
+               (number? (first stack))
+               (<= (position-col start-pos) (first stack))
+               (not (memq (token-name (position-token-token token))
+                          '(ELSE ELIF))))
       (yield (position-token (token-NEWLINE) start-pos start-pos)))
-
-    (let loop ()
-      (when (and (number? (first stack))
-                 (< (position-col start-pos) (first stack)))
-        (set! stack (rest stack))
-        (yield (position-token (token-DEDENT) start-pos start-pos))
-        (loop)))
 
     (define name (token-name (position-token-token token)))
 
     (case name
+      [(EOF)
+       (pop-indents-to 0 start-pos)
+       (yield (position-token (token-NEWLINE) start-pos start-pos))
+       (yield token)]
       [(COLON)
        (yield token)
        (define next-token (the-lexer port))
@@ -219,31 +255,9 @@
          [else
            (set! stack (cons (position-col next-start) stack))
            (yield (position-token (token-INDENT) next-start next-start))
-           (yield next-token)])]
-      [(LPAREN)
-       (yield token)
-       (set! stack (cons 'RPAREN stack))]
-      [(LBRACK)
-       (yield token)
-       (set! stack (cons 'RBRACK stack))]
-      [(LBRACE)
-       (yield token)
-       (set! stack (cons 'RBRACE stack))]
-      [(RPAREN RBRACK RBRACE)
-       (let loop ()
-         (when (and (cons? stack) (number? (first stack)))
-           (yield (position-token (token-DEDENT) start-pos start-pos))
-           (set! stack (rest stack))
-           (loop)))
-       (cond
-         [(empty? stack)
-          (lexical-error start-pos "~a without matching opener" name)]
-         [(eq? name (first stack))
-          (yield token)]
-         [else
-           (lexical-error start-pos "~a where ~a expected"
-                          name (first stack))])]
-      [else (yield token)]))
+           (balance-delimiters next-token)])]
+      [else
+        (balance-delimiters token)]))
 
   (λ ()
      (when (empty? queue) (fill-queue))

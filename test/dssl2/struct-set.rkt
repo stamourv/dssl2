@@ -2,7 +2,7 @@
 
 defstruct posn(x, y)
 
-let p = posn { x: 3, y: 4 }
+let p = posn { x = 3, y = 4 }
 
 assert p.x == 3
 assert p.y == 4
