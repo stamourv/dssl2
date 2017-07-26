@@ -76,11 +76,6 @@
          (list $1)])
 
       (<compound-statement>
-        [(IF <expr0> COLON <suite> <elifs> <maybe-else>)
-         (loc `(cond
-                 [,$2 ,@$4]
-                 ,@$5
-                 ,$6))]
         [(WHILE <expr0> COLON <suite>)
          (loc `(while ,$2 ,@$4))]
         [(FOR IDENT IN <expr> COLON <suite>)
@@ -217,6 +212,11 @@
          (loc `[,$1 ,$1])])
 
       (<expr>
+        [(IF <expr0> COLON <suite> <elifs> <maybe-else>)
+         (loc `(cond
+                 [,$2 ,@$4]
+                 ,@$5
+                 ,$6))]
         [(LAMBDA <formals> COLON <suite>)
          (loc `(lambda ,$2 ,@$4))]
         [(<expr0> IF <expr0> ELSE <expr>)
