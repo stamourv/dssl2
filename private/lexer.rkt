@@ -84,25 +84,6 @@
 
 ; new-dssl2-lexer : string? input-port? boolean? -> [ -> Token]
 (define (new-dssl2-lexer src port interactive?)
-  (define stack '(0))
-  (define queue '())
-
-  (define (push item)
-    (set! stack (cons item stack)))
-
-  (define (pop)
-    (define result (first stack))
-    (set! stack (rest stack))
-    result)
-
-  (define (enq item start end)
-    (set! queue (append queue (list (position-token item start end)))))
-
-  (define (deq)
-    (define result (first queue))
-    (set! queue (rest queue))
-    result)
-
   (define (lexical-error pos msg . args)
     (define offset (position-offset pos))
     (raise-read-error (apply format msg args)
@@ -111,77 +92,15 @@
                       (position-col pos)
                       offset
                       (and offset (max 1 (- (file-position port) offset)))))
-
-  (define (closing closer token pos)
-    (cond
-      [(number? (first stack))
-       (lexical-error pos "Unexpected closing delimeter ‘~a’"
-                      closer)]
-      [(eq? (first stack) closer)
-       (pop)
-       (enq token pos pos)
-       (deq)]
-      [else
-        (lexical-error pos "Expected ‘~a’ but got ‘~a’"
-                       (first stack) closer)]))
-
-  (define (on-eof start-pos end-pos)
-    (when (not (eqv? 0 (first stack)))
-      (enq (token-NEWLINE) start-pos end-pos))
-    (let loop []
-      (when (not (eqv? 0 (first stack)))
-        (enq (token-DEDENT) start-pos end-pos)
-        (pop)
-        (loop)))
-    (enq (token-NEWLINE) start-pos end-pos)
-    (enq (token-EOF) start-pos end-pos)
-    (deq))
-
-  (define (on-indent indent start-pos end-pos)
-    (cond
-      [(number? (first stack))
-       (enq (token-NEWLINE) start-pos end-pos)
-       (cond
-         [(> indent (first stack))
-          (push indent)
-          (enq (token-INDENT) start-pos end-pos)]
-         [(= indent (first stack))
-          (void)]
-         [else
-           (let loop []
-             (cond
-               [(< indent (first stack))
-                (enq (token-DEDENT) start-pos end-pos)
-                (pop)
-                (loop)]
-               [(= indent (first stack))
-                (void)]
-               [else
-                 (lexical-error start-pos "Inconsistent dedent")]))])
-       (deq)]
-      [else (the-lexer port)]))
-
   (define the-lexer
     (lexer-src-pos
-      [(eof)                    (return-without-pos
-                                  (on-eof start-pos end-pos))]
-      [#\(
-                                (begin
-                                  (push #\))
-                                  (token-LPAREN))]
-      [#\[
-                                (begin
-                                  (push #\])
-                                  (token-LBRACK))]
-      [#\{                      (begin
-                                  (push #\})
-                                  (token-LBRACE))]
-      [#\)                      (return-without-pos
-                                  (closing #\) (token-RPAREN) start-pos))]
-      [#\]                      (return-without-pos
-                                  (closing #\] (token-RBRACK) start-pos))]
-      [#\}                      (return-without-pos
-                                  (closing #\} (token-RBRACE) start-pos))]
+      [(eof)                    (token-EOF)]
+      [#\(                      (token-LPAREN)]
+      [#\[                      (token-LBRACK)]
+      [#\{                      (token-LBRACE)]
+      [#\)                      (token-RPAREN)]
+      [#\]                      (token-RBRACK)]
+      [#\}                      (token-RBRACE)]
       [#\,                      (token-COMMA)]
       [#\.                      (token-PERIOD)]
       [#\:                      (token-COLON)]
@@ -241,17 +160,11 @@
       ["inf"                    (token-LITERAL +inf.0)]
       ["nan"                    (token-LITERAL +nan.0)]
       [identifier               (token-IDENT (string->symbol lexeme))]
-      [#\space
-       (return-without-pos (the-lexer port))]
       [comment
        (return-without-pos (the-lexer port))]
-      [(:: #\\ #\newline)
+      [#\space
        (return-without-pos (the-lexer port))]
-      [(:: (:* (:: #\newline (:* #\space) (:? comment)))
-           #\newline (:* #\space))
-       (return-without-pos
-         (on-indent (last-spaces lexeme) start-pos end-pos))]
-      [(:: #\\ #\newline)
+      [#\newline
        (return-without-pos (the-lexer port))]
       [#\tab
        (lexical-error start-pos "Tabs are not allowed in DSSL2")]
@@ -264,13 +177,7 @@
 
   (port-count-lines! port)
 
-  (λ ()
-     (define result
-           (cond
-             [(cons? queue)   (deq)]
-             [else            (the-lexer port)]))
-     ; (displayln (format "Token: ~a" result))
-     result))
+  (λ () (the-lexer port)))
 
 ; string? -> string?
 ; Removes the first and last characters of a string.

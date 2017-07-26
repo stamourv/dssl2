@@ -24,4 +24,11 @@
   (define (test-scan str result)
     (check-equal? (scan-string str) result))
 
-  (test-scan "hello" '(hello NEWLINE)))
+  (test-scan "hello"
+             '(hello))
+  (test-scan "let z = 9"
+             '(LET z EQUALS 9))
+  (test-scan "let z = 9\n"
+             '(LET z EQUALS 9))
+  (test-scan "def f(x):\n    x + 1"
+             '(DEF f LPAREN x RPAREN COLON x PLUS 1)))
