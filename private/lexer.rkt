@@ -181,66 +181,75 @@
   ;; the state machine that restores newlines and indentation.
 
   (define stack '(0))
+  (define queue '())
 
-  (define (next) (continue (the-lexer port)))
+  (define previous-line 1)
 
-  (define (continue token)
-    (set! next (λ () (with-previous-end
-                        (position-token-end-pos token)
-                        (the-lexer port))))
-    token)
+  (define (yield token)
+    (set! previous-line (position-line (position-token-end-pos token)))
+    (set! queue (append queue (cons token '()))))
 
-  (define (with-previous-end end-pos token)
+  (define (fill-queue)
+    (define token (the-lexer port))
     (define start-pos (position-token-start-pos token))
-    (cond
-      [(and (number? (first stack))
-            (< (position-col start-pos) (first stack)))
-       (set! stack (rest stack))
-       (position-token (token-DEDENT) start-pos start-pos)]
-      [(> (position-line start-pos) (position-line end-pos))
-       (set! next (λ () (continue token)))
-       (position-token (token-NEWLINE) end-pos start-pos)]
-      [else
-        (define name (token-name (position-token-token token)))
-        (case name
-          [(COLON)
-           (set! next (λ () (set-indent (the-lexer port))))
-           token]
-          [(LPAREN)
-           (set! stack (cons 'RPAREN stack))
-           token]
-          [(LBRACK)
-           (set! stack (cons 'RBRACK stack))
-           token]
-          [(LBRACE)
-           (set! stack (cons 'RBRACE stack))
-           token]
-          [(RPAREN RBRACK RBRACE)
-           (cond
-             [(number? (first stack))
-              (position-token (token-DEDENT)
-                              (position-token-start-pos token)
-                              (position-token-start-pos token))]
-             [(eq? name (first stack))
-              (set! stack (rest stack))
-              token]
-             [else
-               (lexical-error (position-token-start-pos token)
-                              "~a where ~a expected" name (first stack))])]
-          [else (continue token)])]))
+    (define end-pos (position-token-end-pos token))
 
-  (define (set-indent token)
-    (define start-pos (position-token-start-pos token))
-    (cond
-      [(and (number? (first stack))
-            (< (position-col start-pos) (first stack)))
-       (lexical-error start-pos "Dedent where indent expected")]
-      [else
-        (set! stack (cons (position-col start-pos) stack))
-        (set! next (λ () (continue token)))
-        (position-token (token-INDENT) start-pos start-pos)]))
+    (when (and (> (position-line start-pos) previous-line)
+               (eqv? (position-col start-pos) (first stack)))
+      (yield (position-token (token-NEWLINE) start-pos start-pos)))
 
-  (λ () (next)))
+    (let loop ()
+      (when (and (number? (first stack))
+                 (< (position-col start-pos) (first stack)))
+        (set! stack (rest stack))
+        (yield (position-token (token-DEDENT) start-pos start-pos))
+        (loop)))
+
+    (define name (token-name (position-token-token token)))
+
+    (case name
+      [(COLON)
+       (yield token)
+       (define next-token (the-lexer port))
+       (define next-start (position-token-start-pos next-token))
+       (cond
+         [(and (number? (first stack))
+               (< (position-col next-start) (first stack)))
+          (lexical-error next-start "Got dedent where indent expected")]
+         [else
+           (set! stack (cons (position-col next-start) stack))
+           (yield (position-token (token-INDENT) next-start next-start))
+           (yield next-token)])]
+      [(LPAREN)
+       (yield token)
+       (set! stack (cons 'RPAREN stack))]
+      [(LBRACK)
+       (yield token)
+       (set! stack (cons 'RBRACK stack))]
+      [(LBRACE)
+       (yield token)
+       (set! stack (cons 'RBRACE stack))]
+      [(RPAREN RBRACK RBRACE)
+       (let loop ()
+         (when (and (cons? stack) (number? (first stack)))
+           (yield (position-token (token-DEDENT) start-pos start-pos))
+           (set! stack (rest stack))
+           (loop)))
+       (cond
+         [(empty? stack)
+          (lexical-error start-pos "~a without matching opener" name)]
+         [(eq? name (first stack))
+          (yield token)]
+         [else
+           (lexical-error start-pos "~a where ~a expected"
+                          name (first stack))])]
+      [else (yield token)]))
+
+  (λ ()
+     (when (empty? queue) (fill-queue))
+     (define result (first queue))
+     (set! queue (rest queue))
+     result))
 
 ; string? -> string?
 ; Removes the first and last characters of a string.

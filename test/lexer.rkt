@@ -34,4 +34,6 @@
              '(DEF f LPAREN x RPAREN COLON INDENT x PLUS 1))
   (test-scan "test:\n  test:\n    a\n  b"
              '(TEST COLON INDENT TEST COLON INDENT a DEDENT b))
+  (test-scan "test:\n  a\n  b\nc"
+             '(TEST COLON INDENT a NEWLINE b DEDENT c))
   )
