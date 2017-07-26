@@ -29,6 +29,9 @@
   (test-scan "let z = 9"
              '(LET z EQUALS 9))
   (test-scan "let z = 9\n"
-             '(LET z EQUALS 9))
+             '(LET z EQUALS 9 NEWLINE))
   (test-scan "def f(x):\n    x + 1"
-             '(DEF f LPAREN x RPAREN COLON x PLUS 1)))
+             '(DEF f LPAREN x RPAREN COLON INDENT x PLUS 1))
+  (test-scan "test:\n  test:\n    a\n  b"
+             '(TEST COLON INDENT TEST COLON INDENT a DEDENT b))
+  )

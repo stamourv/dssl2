@@ -177,7 +177,70 @@
 
   (port-count-lines! port)
 
-  (λ () (the-lexer port)))
+  ;; Above is the base lexer, which ignores whichspace. Below this is
+  ;; the state machine that restores newlines and indentation.
+
+  (define stack '(0))
+
+  (define (next) (continue (the-lexer port)))
+
+  (define (continue token)
+    (set! next (λ () (with-previous-end
+                        (position-token-end-pos token)
+                        (the-lexer port))))
+    token)
+
+  (define (with-previous-end end-pos token)
+    (define start-pos (position-token-start-pos token))
+    (cond
+      [(and (number? (first stack))
+            (< (position-col start-pos) (first stack)))
+       (set! stack (rest stack))
+       (position-token (token-DEDENT) start-pos start-pos)]
+      [(> (position-line start-pos) (position-line end-pos))
+       (set! next (λ () (continue token)))
+       (position-token (token-NEWLINE) end-pos start-pos)]
+      [else
+        (define name (token-name (position-token-token token)))
+        (case name
+          [(COLON)
+           (set! next (λ () (set-indent (the-lexer port))))
+           token]
+          [(LPAREN)
+           (set! stack (cons 'RPAREN stack))
+           token]
+          [(LBRACK)
+           (set! stack (cons 'RBRACK stack))
+           token]
+          [(LBRACE)
+           (set! stack (cons 'RBRACE stack))
+           token]
+          [(RPAREN RBRACK RBRACE)
+           (cond
+             [(number? (first stack))
+              (position-token (token-DEDENT)
+                              (position-token-start-pos token)
+                              (position-token-start-pos token))]
+             [(eq? name (first stack))
+              (set! stack (rest stack))
+              token]
+             [else
+               (lexical-error (position-token-start-pos token)
+                              "~a where ~a expected" name (first stack))])]
+          [else (continue token)])]))
+
+  (define (set-indent token)
+    (define start-pos (position-token-start-pos token))
+    (cond
+      [(and (number? (first stack))
+            (< (position-col start-pos) (first stack)))
+       (lexical-error start-pos "Dedent where indent expected")]
+      [else
+        (set! stack (cons (position-col start-pos) stack))
+        (set! next (λ () (continue token)))
+        (position-token (token-INDENT) start-pos start-pos)]))
+
+  (λ () (next)))
 
 ; string? -> string?
 ; Removes the first and last characters of a string.
