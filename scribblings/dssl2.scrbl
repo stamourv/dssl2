@@ -108,8 +108,8 @@ by a newline, or a compound statement.
       (code:line lambda @#,m["{"] var @#,m["},*"] @#,q{:} expr)
       (code:line @#,q{λ} @#,m["{"] var @#,m["},*"] @#,q{:} expr)
       (code:line expr @#,q{if} expr @#,q{else} expr)
-      (code:line structname @#,q["{"] @#,m["{"] fieldname : expr @#,m["},*"] @#,q[" }"])
-      (code:line object structname @#,q["{"] @#,m["{"] fieldname : expr @#,m["},*"] @#,q[" }"])
+      (code:line structname @#,q["{"] @#,m["{"] fieldname = expr @#,m["},*"] @#,q[" }"])
+      (code:line object structname @#,q["{"] @#,m["{"] fieldname = expr @#,m["},*"] @#,q[" }"])
       (code:line @#,q{[} @#,m["{"] expr @#,m["},*"] @#,q{]})
       (code:line @#,q{[} expr @#,q{;} expr @#,q{]})
       (code:line @#,q{[} expr @#,q{for} var @#,m{[} @#,q{,} var @#,m{]} @#,q{in} expr @#,m{[} @#,q{if} expr @#,m{]} @#,q{]})
@@ -242,7 +242,7 @@ Then we can create a @racket[posn] using struct construction syntax and
 select out the fields using dotted selection syntax:
 
 @dssl2block|{
-let p = posn { x: 3, y: 4 }
+let p = posn { x = 3, y = 4 }
 }|
 
 @dssl2block|{
@@ -720,7 +720,7 @@ def parent(link):
     link.parent if rbn?(link) else False
 }|
 
-@defexpform{@syn[structname] { @syn[field]₁: @syn[expr]₁, ..., @syn[field]@subscript{k}: @syn[expr]@subscript{k} }}
+@defexpform{@syn[structname] { @syn[field]₁ = @syn[expr]₁, ..., @syn[field]@subscript{k} = @syn[expr]@subscript{k} }}
 
 Constructs a struct with the given name and the values of the given
 expressions for its fields. The struct must have been declared with
@@ -733,10 +733,10 @@ field value will use that variable:
 defstruct Foo(bar, baz)
 let bar = 4
 let baz = 5
-assert_eq Foo { bar, baz: 9 }, Foo(4, 9)
+assert_eq Foo { bar, baz = 9 }, Foo(4, 9)
 }|
 
-@defexpform{@defidform/inline[object] @syn[structname] { @syn[field]₁: @syn[expr]₁, ..., @syn[field]@subscript{k}: @syn[expr]@subscript{k} }}
+@defexpform{@defidform/inline[object] @syn[structname] { @syn[field]₁ = @syn[expr]₁, ..., @syn[field]@subscript{k} = @syn[expr]@subscript{k} }}
 
 Creates a struct value without declaring the struct type with
 @racket[defstruct]. In particular, creates a struct with the given name
@@ -751,7 +751,7 @@ def Posn(x_, y_):
     def get_x(): x_
     def get_y(): y_
     def fmt(): format("(~a, ~a)", x_, y_)
-    object Posn { get_x: get_x, get_y: get_y, fmt: fmt, }
+    object Posn { get_x = get_x, get_y = get_y, fmt = fmt, }
 }|
 
 @defexpform{[ @syn[expr]@subscript{0}, ..., @syn[expr]@subscript{k - 1} ]}
