@@ -41,6 +41,15 @@
   (check-parse? "\na"
                 a)
 
+  (check-parse? "() -> 5"
+                (FunC 5))
+  (check-parse? "(5) -> 6"
+                (FunC 5 6))
+  (check-parse? "(5, 6) -> 7"
+                (FunC 5 6 7))
+  (check-parse? "(5)"
+                5)
+
   ; compound expressions
 
   (check-parse? "a + b * c + d"
