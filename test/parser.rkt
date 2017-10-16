@@ -49,6 +49,10 @@
                 (FunC 5 6 7))
   (check-parse? "(5)"
                 5)
+  (check-parse? "() -> f(x)"
+                (FunC (f x)))
+  (check-parse? "() -> () -> int?"
+                (FunC (FunC int?)))
 
   ; compound expressions
 
