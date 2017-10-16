@@ -251,6 +251,12 @@
          (loc `(,(format-id #f "m:~a" $1 #:source $1) ,@$3))]
         [(OBJECT <ident> LBRACE <fields> RBRACE)
          (loc `(object ,$2 ,@$4))]
+        [(LPAREN <expr> RPAREN ARROW <atom>)
+         (loc `(FunC ,$2 ,$5))]
+        [(LPAREN RPAREN ARROW <atom>)
+         (loc `(FunC ,$4))]
+        [(LPAREN <expr> COMMA <actuals> RPAREN ARROW <atom>)
+         (loc `(FunC ,$2 ,@$4 ,$7))]
         [(LPAREN <expr> RPAREN)
          (loc $2)])
 
@@ -299,8 +305,6 @@
       (<expr2>
         [(<expr3> OP2 <expr3>)
          (loc `(,$2 ,$1 ,$3))]
-        [(LPAREN <actuals> RPAREN ARROW <expr2>)
-         (loc `(FunC ,@$2 ,$5))]
         [(<expr3>)
          $1])
 
