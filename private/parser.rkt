@@ -299,6 +299,8 @@
       (<expr2>
         [(<expr3> OP2 <expr3>)
          (loc `(,$2 ,$1 ,$3))]
+        [(LPAREN <actuals> RPAREN ARROW <expr2>)
+         (loc `(FunC ,@$2 ,$5))]
         [(<expr3>)
          $1])
 
